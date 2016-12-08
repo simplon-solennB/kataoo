@@ -81,7 +81,7 @@ class ArticleRenderer
      * renvoie l'article mis en forme
      * <h2>titre</h2>
      * <p>article</p>
-     * <footer>par nom-court, le date </footer>
+     * <p>par nom-court, le date </p>
      * @return String
      */
     function render(): String
@@ -126,7 +126,8 @@ class Blog
     }
 
     /**
-     * renvoie
+     * renvoie un footer avec la date du jour
+     * <footer></footer>
      */
     function displayFooter()
     {
