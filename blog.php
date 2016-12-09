@@ -141,7 +141,8 @@ class ViewHelper
 
 }
 
-$articles = new BlogLoader('blog.json');
+$loader = new BlogLoader();
+$articles = $loader->load('blog.json');
 $blog = new Blog('Vive la POO', $articles);
 
 ?>
