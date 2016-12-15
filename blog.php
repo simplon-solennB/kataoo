@@ -4,7 +4,33 @@ class BlogLoader
 {
     function load(String $path): array
     {
+        $rawAuthors = json_decode(file_get_contents($path), true)['authors'];
+        $authors = array_map(function ($rawAuthor) {
+            return new Author($rawAuthor['id'], $rawAuthor['firstname'], $rawAuthor['lastname']);
+        }, $rawAuthors);
 
+        $rawArticles = json_decode(file_get_contents($path), true)['articles'];
+
+        // pour chaque rawArticle on veut récup une instance de Article
+        $articles = array_map(function ($rawArticle) use($authors){
+
+            $articleAuthorId = $rawArticle["authorId"];
+
+            $articleAuthors = array_filter(
+                $authors,function($author) use($articleAuthorId){
+                    return $author->id == $articleAuthorId;
+            });
+
+            $articleAuthor = current($articleAuthors);
+
+            return new Article(
+                $rawArticle["id"], $rawArticle["title"],
+                $rawArticle["content"], $articleAuthor,
+                new DateTime($rawArticle['date'])
+            );
+        }, $rawArticles);
+
+        return $articles;
     }
 }
 
@@ -12,15 +38,17 @@ class BlogLoader
  * Class Autor
  * description d'un rédacteur
  */
-class Autor
+class Author
 {
     public $id;
     public $firstName;
-    public $LastName;
+    public $lastName;
 
     public function __construct(int $id, String $firstName, String $lastName)
     {
-
+        $this->id = $id;
+        $this->firstName = $firstName;
+        $this->lastName = $lastName;
     }
 
     /**
@@ -38,7 +66,7 @@ class Autor
      */
     function getShortName(): String
     {
-
+        return $this->firstName[0]. "." .$this->lastName;
     }
 
     /**
@@ -59,22 +87,27 @@ class Article
     public $id;
     public $title;
     public $content;
-    public $autor;
+    public $author;
     public $publicationDate;
 
-    public function __construct(String $title, String $content, Autor $autor, DateTime $date)
+    public function __construct(int $id, String $title, String $content, Author $author, DateTime $date)
     {
-
+        $this->id = $id;
+        $this->title = $title;
+        $this->content = $content;
+        $this->publicationDate = $date;
+        $this->author = $author;
     }
 }
-
 
 class ArticleRenderer
 {
 
+    private $article;
+
     public function __construct(Article $article)
     {
-
+        $this->article = $article;
     }
 
     /**
@@ -86,33 +119,52 @@ class ArticleRenderer
      */
     function render(): String
     {
-
+        return "<h2>".$this->article->title."</h2><p>"
+            .$this->article->content."</p><p>"
+            .$this->article->author->getShortName()
+            .", le ".$this->article->publicationDate->format('d-m-Y')." </p>";
     }
 }
 
 class Blog
 {
+    public $title;
+    public $articles;
 
+    /**
+     * Blog constructor.
+     * @param String $title
+     * @param array $articles tableau d'instances Articles
+     */
     public function __construct(String $title, array $articles)
     {
+        $this->title = $title;
+        $this->articles = $articles;
     }
 
     /**
-     * Renvoie le header  du blog
-     * <header>titre
+     * Renvoie le header du blog
+     * <header><h1>titre</h1></header>
      * @return String
      */
     function displayHeader(): String
     {
-
+        return "<h1>$this->title</h1>";
     }
 
     /**
      * affiche la liste des titres d'articles sous formes de liens vers les articles
      */
-    function displayArticleList(): String
+    public function displayArticleList(): String
     {
+        // <a href="SELF?articleId=Y">article->title</a>
 
+        $articleLinks = array_map(function($article){
+            return "<a href=\"".$_SERVER['PHP_SELF']."?articleId="
+                .$article->id."\">$article->title</a>";
+        }, $this->articles);
+
+        return join("<hr/>", $articleLinks);
     }
 
     /**
@@ -120,9 +172,15 @@ class Blog
      * @param int $articleId
      * @return String
      */
-    function displayArticle(int $articleId): String
+    public function displayArticle(int $articleId): String
     {
+        $selectedArticle = current( array_filter( $this->articles,
+            function($article) use($articleId) {
+                return $article->id == $articleId;
+            }));
+        $renderer = new ArticleRenderer($selectedArticle);
 
+        return $renderer->render();
     }
 
     /**
@@ -131,7 +189,8 @@ class Blog
      */
     function displayFooter()
     {
-
+        $date = new DateTime();
+        return "<footer>". $date->format('d-m-y')  ."</footer>";
     }
 }
 
@@ -143,8 +202,11 @@ class ViewHelper
 
 $loader = new BlogLoader();
 $articles = $loader->load('blog.json');
-$blog = new Blog('Vive la POO', $articles);
 
+//var_dump($articles);
+
+$blog = new Blog('Vive la POO', $articles);
+//echo $blog->displayHeader();
 ?>
 
 <!doctype html>
@@ -158,7 +220,8 @@ $blog = new Blog('Vive la POO', $articles);
 </head>
 <body>
 <?= $blog->displayHeader(); ?>
-<?= isset($_GET['articleId']) ? $blog->displayArticleList() : $blog->displayArticle($_GET['articleId']); ?>
+<?= isset($_GET['articleId']) ? $blog->displayArticle($_GET['articleId']) : $blog->displayArticleList(); ?>
+
 <?= $blog->displayFooter(); ?>
 </body>
 </html>
