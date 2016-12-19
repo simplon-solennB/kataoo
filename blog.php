@@ -18,12 +18,12 @@ class BlogJsonLoader implements IBlogLoader
      * @return array
      */
     public function parse(String $rawData):array{
-        $rawAuthors = json_decode(file_get_contents($path), true)['authors'];
+        $rawAuthors = $rawData['authors'];
         $authors = array_map(function ($rawAuthor) {
             return new Author($rawAuthor['id'], $rawAuthor['firstname'], $rawAuthor['lastname']);
         }, $rawAuthors);
 
-        $rawArticles = json_decode(file_get_contents($path), true)['articles'];
+        $rawArticles = $rawData['articles'];
 
         // pour chaque rawArticle on veut récup une instance de Article
         $articles = array_map(function ($rawArticle) use($authors){
