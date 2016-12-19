@@ -1,8 +1,12 @@
 <?php
 
-class BlogLoader
+class BlogJsonLoader implements IBlogLoader
 {
-    function load(String $path): array
+    /**
+     * @param String $path
+     * @return array
+     */
+    public function load(String $path): array
     {
         $rawAuthors = json_decode(file_get_contents($path), true)['authors'];
         $authors = array_map(function ($rawAuthor) {
@@ -34,6 +38,38 @@ class BlogLoader
     }
 }
 
+
+
+/**
+ * Class BlogCSVLoader charge les articles depuis fichier csv
+ * id / title / content / date / authorId / firstname / lastname
+ */
+class BlogCSVLoader extends BlogJsonLoader{
+
+}
+
+/**
+ * Class BlogDBLoader charge les articles depuis une base de données
+ */
+class BlogDBLoader implements IBlogLoader{
+
+    /**
+     * @param $dbname
+     */
+    function load(String $path):array
+    {
+        // TODO: Implement load() method.
+    }
+}
+
+interface IBlogLoader{
+    /**
+     * @param String $path
+     * @return array Article
+     */
+    function load(String $path):array;
+}
+
 /**
  * Class Autor
  * description d'un rédacteur
@@ -57,7 +93,7 @@ class Author
      */
     function getName(): String
     {
-
+        return $this->firstName. "." .$this->lastName ;
     }
 
     /**
@@ -66,7 +102,7 @@ class Author
      */
     function getShortName(): String
     {
-        return $this->firstName[0]. "." .$this->lastName;
+        return strtoupper($this->firstName[0]). "." .$this->lastName;
     }
 
     /**
@@ -75,7 +111,7 @@ class Author
      */
     function getInitial(): String
     {
-
+        return strtoupper( $this->firstName[0]. "." .$this->lastName[0] );
     }
 }
 
@@ -112,7 +148,7 @@ class ArticleRenderer
 
     /**
      * renvoie l'article mis en forme
-     * <h2>titre</h2>
+     * <h2>{% $title %}</h2>
      * <p>article</p>
      * <p>par nom-court, le date </p>
      * @return String
@@ -190,20 +226,40 @@ class Blog
     function displayFooter()
     {
         $date = new DateTime();
-        return "<footer>". $date->format('d-m-y')  ."</footer>";
+        return ViewHelper::footer($date->format('d-m-y'));
+        //return "<footer>".   ."</footer>";
     }
 }
 
 // et pourquoi pas essayer de trouver 2/3 trucs à mettre dans un "helper"
 class ViewHelper
 {
+    private $defaultClass;
 
+    /* static*/ const FOOTER = "footer";
+
+    static $footer_var = "footer";
+
+    public function __construct($defaultClass)
+    {
+        $this->defaultClass = $this->defaultClass;
+    }
+
+    static public function p($text){
+        return '<p>'.$text.'</p>';
+    }
+
+    static public function footer($text){
+        return "<".ViewHelper::FOOTER." ><h3>".$text."</h3></>";
+    }
 }
 
-$loader = new BlogLoader();
-$articles = $loader->load('blog.json');
 
-//var_dump($articles);
+$loader = new BlogJsonLoader();
+// ou $loader = new BlogCSVLoader();
+// ou $loader = new BlogDBLoader();
+
+$articles = $loader->load('blog.json');
 
 $blog = new Blog('Vive la POO', $articles);
 //echo $blog->displayHeader();
