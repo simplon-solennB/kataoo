@@ -8,6 +8,16 @@ class BlogJsonLoader implements IBlogLoader
      */
     public function load(String $path): array
     {
+        $rawData = file_get_contents($path);
+        return $this->parse($rawData);
+    }
+
+    /**
+     * parse les données JSON et renvoie une liste d'articles
+     * @param String $rawData donnees json_decodées
+     * @return array
+     */
+    public function parse(String $rawData):array{
         $rawAuthors = json_decode(file_get_contents($path), true)['authors'];
         $authors = array_map(function ($rawAuthor) {
             return new Author($rawAuthor['id'], $rawAuthor['firstname'], $rawAuthor['lastname']);
@@ -22,7 +32,7 @@ class BlogJsonLoader implements IBlogLoader
 
             $articleAuthors = array_filter(
                 $authors,function($author) use($articleAuthorId){
-                    return $author->id == $articleAuthorId;
+                return $author->id == $articleAuthorId;
             });
 
             $articleAuthor = current($articleAuthors);
@@ -33,7 +43,6 @@ class BlogJsonLoader implements IBlogLoader
                 new DateTime($rawArticle['date'])
             );
         }, $rawArticles);
-
         return $articles;
     }
 }
