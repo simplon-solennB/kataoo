@@ -17,21 +17,22 @@ class BlogJsonLoader implements IBlogLoader
      * @param String $rawData donnees json_decodées
      * @return array
      */
-    public function parse(String $rawData):array{
-        $rawAuthors = $rawData['authors'];
+    public function parse(String $rawData): array
+    {
+        $rawAuthors = json_decode($rawData, true)['authors'];
         $authors = array_map(function ($rawAuthor) {
             return new Author($rawAuthor['id'], $rawAuthor['firstname'], $rawAuthor['lastname']);
         }, $rawAuthors);
 
-        $rawArticles = $rawData['articles'];
+        $rawArticles = json_decode($rawData, true)['articles'];
 
         // pour chaque rawArticle on veut récup une instance de Article
-        $articles = array_map(function ($rawArticle) use($authors){
+        $articles = array_map(function ($rawArticle) use ($authors) {
 
             $articleAuthorId = $rawArticle["authorId"];
 
             $articleAuthors = array_filter(
-                $authors,function($author) use($articleAuthorId){
+                $authors, function ($author) use ($articleAuthorId) {
                 return $author->id == $articleAuthorId;
             });
 
@@ -48,35 +49,131 @@ class BlogJsonLoader implements IBlogLoader
 }
 
 
-
 /**
  * Class BlogCSVLoader charge les articles depuis fichier csv
  * id / title / content / date / authorId / firstname / lastname
  */
-class BlogCSVLoader extends BlogJsonLoader{
+class BlogCSVLoader extends BlogJsonLoader
+{
 
+
+    /**
+     * parse les données CSV et renvoie une liste d'articles
+     * @param String $rawData donnees CSV_decodées
+     * @return array
+     */
+    public function parse(String $rawData): array
+    {
+
+
+        $lines = explode(PHP_EOL, $rawData); // Pour transformer csv en tableau associatif
+        $csv = array_map('str_getcsv', $lines);
+        unset($csv[0]); // On supprime la premiere entrée du tableau qui contient les titres de colonne
+
+        $authors = array_map(function ($article) { //on récupere une instante de Author pour chaque auteur
+            $id = intval($article[4]);
+            $firstname = $article[5];
+            $lastname = $article[6];
+
+            return new Author($id, $firstname, $lastname);
+        }, $csv);
+
+
+        $articles = array_map(function ($article) use ($authors) {//on récupere une instante de Article pour chaque article
+
+            $id = intval($article[0]);
+            $title = $article [1];
+            $content = $article [2];
+            $date = new DateTime($article[3]);
+            $authorId = $article[4];
+
+            $articleAuthorId = $authorId;
+
+            $articleAuthors = array_filter(
+                $authors, function ($author) use ($articleAuthorId) {
+                return $author->id == $articleAuthorId;
+            });
+
+            $articleAuthor = current($articleAuthors);
+
+            return new Article(
+                $id, $title, $content, $articleAuthor, $date
+            );
+        }, $csv);
+        return $articles;
+    }
 }
 
 /**
  * Class BlogDBLoader charge les articles depuis une base de données
  */
-class BlogDBLoader implements IBlogLoader{
+class BlogDBLoader implements IBlogLoader
+{
 
     /**
      * @param $dbname
      */
-    function load(String $path):array
+    function load(String $path): array
     {
         // TODO: Implement load() method.
+        try {
+            // on ouvre une connexion à la base de données
+            $connexion = new PDO('mysql:host=localhost;dbname=' . $path . ';charset=utf8', 'root', '');
+        } catch (Exception $excp) {
+            die('Erreur : ' . $excp->getMessage());
+        };
+
+        $rq = "SELECT * FROM `author`";
+        $results = $connexion->query($rq);
+
+        $authors = array();
+
+        while ($row = $results->fetch()) {
+            $authorId = $row['id_author'];
+            $firstname = $row['firstname'];
+            $lastname = $row["lastname"];
+
+            $authors[] = new Author($authorId, $firstname, $lastname);
+        }
+
+
+        $rq2 = "SELECT * FROM `article`";
+        $results2 = $connexion->query($rq2);
+        $articles = array();
+
+        while ($row = $results2->fetch()) {
+
+            $id = $row['id_article'];
+            $title = $row['title'];
+            $content = $row['content'];
+            $authorId = $row['authorId'];
+            $date = new DateTime($row['date']);
+
+            $articleAuthorId = $authorId;
+
+            $articleAuthors = array_filter(
+                $authors, function ($author) use ($articleAuthorId) {
+                return $author->id == $articleAuthorId;
+            });
+
+            $articleAuthor = current($articleAuthors);
+
+            $articles[] = new Article(
+                $id, $title, $content, $articleAuthor, $date
+            );
+
+        }
+        return $articles;
     }
 }
 
-interface IBlogLoader{
+interface IBlogLoader
+{
     /**
      * @param String $path
      * @return array Article
      */
-    function load(String $path):array;
+    function load(String $path): array;
 }
 
 /**
@@ -102,7 +199,7 @@ class Author
      */
     function getName(): String
     {
-        return $this->firstName. "." .$this->lastName ;
+        return $this->firstName . "." . $this->lastName;
     }
 
     /**
@@ -111,7 +208,7 @@ class Author
      */
     function getShortName(): String
     {
-        return strtoupper($this->firstName[0]). "." .$this->lastName;
+        return strtoupper($this->firstName[0]) . "." . $this->lastName;
     }
 
     /**
@@ -120,7 +217,7 @@ class Author
      */
     function getInitial(): String
     {
-        return strtoupper( $this->firstName[0]. "." .$this->lastName[0] );
+        return strtoupper($this->firstName[0] . "." . $this->lastName[0]);
     }
 }
 
@@ -164,10 +261,10 @@ class ArticleRenderer
      */
     function render(): String
     {
-        return "<h2>".$this->article->title."</h2><p>"
-            .$this->article->content."</p><p>"
-            .$this->article->author->getShortName()
-            .", le ".$this->article->publicationDate->format('d-m-Y')." </p>";
+        return "<h2>" . $this->article->title . "</h2><p>"
+            . $this->article->content . "</p><p>"
+            . $this->article->author->getShortName()
+            . ", le " . $this->article->publicationDate->format('d-m-Y') . " </p>";
     }
 }
 
@@ -204,9 +301,9 @@ class Blog
     {
         // <a href="SELF?articleId=Y">article->title</a>
 
-        $articleLinks = array_map(function($article){
-            return "<a href=\"".$_SERVER['PHP_SELF']."?articleId="
-                .$article->id."\">$article->title</a>";
+        $articleLinks = array_map(function ($article) {
+            return "<a href=\"" . $_SERVER['PHP_SELF'] . "?articleId="
+                . $article->id . "\">$article->title</a>";
         }, $this->articles);
 
         return join("<hr/>", $articleLinks);
@@ -219,8 +316,8 @@ class Blog
      */
     public function displayArticle(int $articleId): String
     {
-        $selectedArticle = current( array_filter( $this->articles,
-            function($article) use($articleId) {
+        $selectedArticle = current(array_filter($this->articles,
+            function ($article) use ($articleId) {
                 return $article->id == $articleId;
             }));
         $renderer = new ArticleRenderer($selectedArticle);
@@ -245,7 +342,8 @@ class ViewHelper
 {
     private $defaultClass;
 
-    /* static*/ const FOOTER = "footer";
+    /* static*/
+    const FOOTER = "footer";
 
     static $footer_var = "footer";
 
@@ -254,24 +352,26 @@ class ViewHelper
         $this->defaultClass = $this->defaultClass;
     }
 
-    static public function p($text){
-        return '<p>'.$text.'</p>';
+    static public function p($text)
+    {
+        return '<p>' . $text . '</p>';
     }
 
-    static public function footer($text){
-        return "<".ViewHelper::FOOTER." ><h3>".$text."</h3></>";
+    static public function footer($text)
+    {
+        return "<" . ViewHelper::FOOTER . " ><h3>" . $text . "</h3></>";
     }
 }
 
 
-$loader = new BlogJsonLoader();
-// ou $loader = new BlogCSVLoader();
-// ou $loader = new BlogDBLoader();
+//$loader = new BlogJsonLoader();
+//$loader = new BlogCSVLoader();
+$loader = new BlogDBLoader();
 
-$articles = $loader->load('blog.json');
+$articles = $loader->load('blog');
 
 $blog = new Blog('Vive la POO', $articles);
-//echo $blog->displayHeader();
+
 ?>
 
 <!doctype html>
