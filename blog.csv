@@ -1,0 +1,5 @@
+"id","title","content","date","authorId","firstname","lastname"
+"1","Intro","La POO c'est...","20161109","2","Jack","Roc"
+"2","Les Classes","Une classe est..","20161111","2","Jack","Roc"
+"3","Le constructeur","Lorsqu'on instancie...","20161112","1","Bob","Lee"
+"4","Les Proprietés","Une classe peut définir des propriétés...","20161115","1","Bob","Lee"
